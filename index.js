@@ -4,6 +4,8 @@ const line = require('@line/bot-sdk');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw0WGCkDuExqd-xkIDFUwattLWJGFTDf-AlRS1W5yOmT4a1F35S_pEQRi0BouBWJNw/exec";
+
 const client = new line.Client({
   channelAccessToken: process.env.LINE_ACCESS_TOKEN,
   channelSecret: process.env.LINE_SECRET
@@ -11,7 +13,6 @@ const client = new line.Client({
 
 const app = express();
 
-// ✅ ต้องใส่ raw body ไว้ก่อน middleware LINE
 app.post('/webhook',
   bodyParser.raw({ type: '*/*' }),
   line.middleware(client.config),
@@ -20,36 +21,50 @@ app.post('/webhook',
 
     for (const event of events) {
       if (event.type === 'message' && event.message.type === 'text') {
-        const msg = event.message.text.toLowerCase();
+        const msg = event.message.text.trim().toLowerCase();
 
-        if (msg.includes('offline')) {
+        // ✅ ถ้าผู้ใช้ส่งพิกัด → ส่ง lat/long ไป GAS ด้วย
+        if (event.message.type === 'location') {
+          const lat = event.message.latitude;
+          const lon = event.message.longitude;
+          await axios.post(GAS_URL, {
+            mode: "ask",
+            lat: lat,
+            long: lon,
+            message: "หากล้องที่ใกล้ที่สุด"
+          });
+          return;
+        }
+
+        // ✅ ส่งคำถามที่เกี่ยวข้องกับกล้อง ไปยัง GAS (mode=ask)
+        if (
+          msg.includes("offline") ||
+          msg.includes("online") ||
+          msg.includes("map") ||
+          msg.includes("พิกัด") ||
+          msg.includes("กล้อง") ||
+          msg.includes("แผนที่") ||
+          msg.includes("ล่ม") ||
+          msg.includes("ตำแหน่ง") ||
+          msg.includes("ระยะทาง") ||
+          msg.includes("กี่ตัว")
+        ) {
           try {
-            const response = await axios.get(process.env.SHEET_WEBHOOK_URL);
-            const cameras = response.data.cameras;
-
-            const offlineCams = cameras.filter(c =>
-              (c.status || c.Status)?.toLowerCase() === 'offline'
-            );
-
-            const replyText = offlineCams.length === 0
-              ? "✅ ขณะนี้ไม่มีกล้อง offline ครับ"
-              : "📷 กล้อง offline:\n" + offlineCams.map(c => `- ${c.camera_name}`).join('\n');
-
-            await client.replyMessage(event.replyToken, {
-              type: 'text',
-              text: replyText
+            await axios.post(GAS_URL, {
+              mode: "ask",
+              message: event.message.text
             });
           } catch (err) {
-            console.error("Fetch camera error:", err.message);
+            console.error("ส่งไป GAS ไม่สำเร็จ:", err.message);
             await client.replyMessage(event.replyToken, {
               type: 'text',
-              text: 'เกิดข้อผิดพลาดในการดึงข้อมูลกล้อง ❌'
+              text: '❌ ไม่สามารถเชื่อมต่อ GAS ได้'
             });
           }
         } else {
           await client.replyMessage(event.replyToken, {
             type: 'text',
-            text: 'พิมพ์ "กล้องไหน offline" เพื่อดูสถานะกล้องครับ'
+            text: '❓ โปรดพิมพ์คำถามเกี่ยวกับกล้อง เช่น "แผนที่", "กล้อง offline", "พิกัดกล้อง A"'
           });
         }
       }
