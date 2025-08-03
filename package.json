@@ -1,8 +1,7 @@
 
 {
-  "name": "linebot-cctv-gas",
+  "name": "line-bot-cctv",
   "version": "1.0.0",
-  "description": "LINE Bot ที่เชื่อมกับ Google Apps Script เพื่อตอบคำถามเกี่ยวกับกล้อง",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
