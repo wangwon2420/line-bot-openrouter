@@ -12,14 +12,13 @@ const client = new line.Client({
 
 const app = express();
 
-// ✅ ต้องใส่ raw body เพื่อ validate signature
+// ✅ raw body เพื่อให้ LINE validate signature ได้ถูกต้อง
 app.post('/webhook',
   bodyParser.raw({ type: '*/*' }),
   line.middleware(client.config),
   async (req, res) => {
     try {
-      const jsonText = req.body.toString('utf-8');
-      const body = JSON.parse(jsonText);
+      const body = JSON.parse(Buffer.from(req.body).toString('utf-8'));
       const events = body.events || [];
 
       for (const event of events) {
