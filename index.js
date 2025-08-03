@@ -12,7 +12,6 @@ const client = new line.Client({
 
 const app = express();
 
-// ✅ รองรับทั้ง Buffer และ Object body
 app.post('/webhook',
   bodyParser.raw({ type: '*/*' }),
   line.middleware(client.config),
@@ -35,9 +34,15 @@ app.post('/webhook',
           if (msg.includes("offline") || msg.includes("online") ||
               msg.includes("แผนที่") || msg.includes("พิกัด") || msg.includes("กล้อง")) {
             try {
-              await axios.post(process.env.GAS_URL, {
+              const response = await axios.post(process.env.GAS_URL, {
                 mode: "ask",
                 message: event.message.text
+              });
+
+              const replyText = response.data?.reply || "❓ ยังไม่สามารถตอบคำถามนี้ได้";
+              await client.replyMessage(event.replyToken, {
+                type: 'text',
+                text: replyText
               });
               replied = true;
             } catch (err) {
